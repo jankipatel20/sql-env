@@ -1,5 +1,6 @@
 title: SQL Environment Server
 emoji: 🗄️
+
 colorFrom: blue
 colorTo: cyan
 sdk: docker
