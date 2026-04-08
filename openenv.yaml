@@ -1,7 +1,16 @@
-spec_version: 1
-name: sql_env
-type: space
-runtime: fastapi
-app: server.app:app
-port: 8000
+title: SQL Environment Server
+emoji: 🗄️
 
+colorFrom: blue
+colorTo: cyan
+sdk: docker
+pinned: false
+app_port: 8000
+base_path: /web
+tags:
+  - openenv
+  - sql
+  - database
+  - real-world
+name: sql-env         
+version: 0.1.0       
