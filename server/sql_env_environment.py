@@ -27,7 +27,11 @@ except ImportError:
 
 # Path to the SQLite database file.
 # Place your .db file here, or it will be created automatically.
-DB_PATH = os.environ.get("SQL_ENV_DB_PATH", "sql_env.db")
+# NEW
+DB_PATH = os.environ.get(
+    "SQL_ENV_DB_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sql_env.db")
+)
 
 
 class SqlEnvironment(Environment):
