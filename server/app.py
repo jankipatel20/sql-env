@@ -35,12 +35,16 @@ except Exception as e:  # pragma: no cover
         "openenv is required for the web interface. Install dependencies with '\n    uv sync\n'"
     ) from e
 
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 try:
     from models import SqlAction, SqlObservation
     from server.sql_env_environment import SqlEnvironment
 except ModuleNotFoundError:
-    from env.models import SqlAction, SqlObservation
-    from env.server.sql_env_environment import SqlEnvironment
+    from server.models import SqlAction, SqlObservation
+    from server.sql_env_environment import SqlEnvironment
 
 
 # Create the app with web interface and README integration
