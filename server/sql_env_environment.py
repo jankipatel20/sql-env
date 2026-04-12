@@ -95,60 +95,40 @@ class SqlEnvironment(Environment):
             }
 
     def _reward(self, result: dict, query: str) -> float:
-        """
-        Reward based on query quality:
-        - Error:                        0.0
-        - Runs successfully:            +0.3
-        - Returns rows:                 +0.2
-        - Uses JOIN:                    +0.2
-        - Uses aggregation:             +0.2
-        - Uses WHERE:                   +0.1
-        - Columns match task expected:  +0.2 bonus
-        Max possible:                   1.0
-        """
         if result["error"]:
             return 0.0
 
         score = 0.0
         q = query.lower()
 
-        # Base score for running successfully
         score += 0.3
 
-        # Returned actual data
         if result["rowcount"] > 0:
             score += 0.2
 
-        # Bonus for JOIN
         if "join" in q:
             score += 0.2
 
-        # Bonus for aggregation
         if any(fn in q for fn in ["count(", "sum(", "avg(", "max(", "min("]):
             score += 0.2
 
-        # Bonus for WHERE filter
         if "where" in q:
             score += 0.1
 
-        # Bonus for matching expected columns from task
         if self._task and result["columns"]:
             matched = sum(
                 1 for c in self._task.expected_columns
-                if any(
-                    c in col.lower() or col.lower() in c  # ← bidirectional match
-                    for col in result["columns"]
-                )
+                if any(c in col.lower() or col.lower() in c
+                    for col in result["columns"])
             )
             score += 0.2 * (matched / len(self._task.expected_columns))
 
-        return min(score, 1.0)
+        # ← run grader if available
+        if self._task and self._task.grader and result["rows"]:
+            grader_score = self._task.grader(result["rows"])
+            score = min(score + (grader_score * 0.2), 1.0)
 
-    def _pick_task(self) -> Task:
-        """Pick a task based on TASK_DIFFICULTY env var, or random if unset."""
-        if TASK_DIFFICULTY in ("easy", "medium", "hard"):
-            return get_task_by_difficulty(TASK_DIFFICULTY)
-        return get_random_task()
+        return min(score, 1.0)
 
     # ------------------------------------------------------------------
     # Environment interface

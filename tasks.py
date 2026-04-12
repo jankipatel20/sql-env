@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import List, Callable, Any
 import random
 
 @dataclass
@@ -9,6 +9,35 @@ class Task:
     expected_columns: List[str]
     validation_query: str
     difficulty: str
+    grader: Callable[[List[Any]], float] = None  # ← add this
+
+
+def grader_salary_above_50000(rows: List[Any]) -> float:
+    """All returned rows must have salary > 50000."""
+    if not rows:
+        return 0.0
+    correct = all(row[1] > 50000 for row in rows)
+    return 1.0 if correct else 0.0
+
+
+def grader_employee_department_join(rows: List[Any]) -> float:
+    """Must return rows with at least 2 columns (name + department)."""
+    if not rows:
+        return 0.0
+    correct = all(len(row) >= 2 for row in rows)
+    return 1.0 if correct else 0.0
+
+
+def grader_avg_salary_per_department(rows: List[Any]) -> float:
+    """Must return rows with department name and a numeric avg salary."""
+    if not rows:
+        return 0.0
+    try:
+        correct = all(isinstance(row[1], (int, float)) for row in rows)
+        return 1.0 if correct else 0.0
+    except (IndexError, TypeError):
+        return 0.0
+
 
 TASKS = [
     Task(
@@ -17,6 +46,7 @@ TASKS = [
         expected_columns=["name", "salary"],
         validation_query="SELECT name, salary FROM employees WHERE salary > 50000",
         difficulty="easy",
+        grader=grader_salary_above_50000,
     ),
     Task(
         id="task_02",
@@ -24,6 +54,7 @@ TASKS = [
         expected_columns=["name", "department"],
         validation_query="SELECT e.name, d.name AS department FROM employees e JOIN departments d ON e.department = d.id",
         difficulty="medium",
+        grader=grader_employee_department_join,
     ),
     Task(
         id="task_03",
@@ -31,6 +62,7 @@ TASKS = [
         expected_columns=["name", "avg_salary"],
         validation_query="SELECT d.name, AVG(e.salary) AS avg_salary FROM employees e JOIN departments d ON e.department = d.id GROUP BY d.id",
         difficulty="hard",
+        grader=grader_avg_salary_per_department,
     ),
 ]
 
