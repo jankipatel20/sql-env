@@ -36,11 +36,11 @@ except Exception as e:  # pragma: no cover
     ) from e
 
 try:
-    from ..models import SqlAction, SqlObservation
-    from .sql_env_environment import SqlEnvironment
-except ModuleNotFoundError:
     from models import SqlAction, SqlObservation
     from server.sql_env_environment import SqlEnvironment
+except ModuleNotFoundError:
+    from env.models import SqlAction, SqlObservation
+    from env.server.sql_env_environment import SqlEnvironment
 
 
 # Create the app with web interface and README integration

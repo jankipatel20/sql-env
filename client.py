@@ -55,7 +55,7 @@ class SqlEnv(
             Dictionary representation suitable for JSON encoding
         """
         return {
-            "message": action.message,
+            "query": action.query,
         }
 
     def _parse_result(self, payload: Dict) -> StepResult[SqlObservation]:
