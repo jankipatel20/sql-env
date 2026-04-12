@@ -135,7 +135,7 @@ class SqlEnvironment(Environment):
     # ------------------------------------------------------------------
 
     def reset(self) -> SqlObservation:
-        self._task = self._pick_task()
+        self._task = get_random_task()
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._reset_count += 1
         self._connect()
