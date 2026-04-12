@@ -11,11 +11,10 @@ Executes SQL queries against a SQLite database and returns results
 as structured observations.
 """
 
-import json
 import os
 import sqlite3
 from uuid import uuid4
-
+from tasks import get_random_task, get_task_by_difficulty, Task
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
 
@@ -25,13 +24,13 @@ except ImportError:
     from models import SqlAction, SqlObservation
 
 
-# Path to the SQLite database file.
-# Place your .db file here, or it will be created automatically.
-# NEW
 DB_PATH = os.environ.get(
     "SQL_ENV_DB_PATH",
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sql_env.db")
 )
+
+# Set TASK_DIFFICULTY=easy/medium/hard in .env, or leave unset for random
+TASK_DIFFICULTY = os.environ.get("TASK_DIFFICULTY", None)
 
 
 class SqlEnvironment(Environment):
@@ -41,6 +40,7 @@ class SqlEnvironment(Environment):
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._reset_count = 0
         self._conn: sqlite3.Connection | None = None
+        self._task: Task | None = None
         self._connect()
 
     # ------------------------------------------------------------------
@@ -55,7 +55,7 @@ class SqlEnvironment(Environment):
             except Exception:
                 pass
         self._conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row  # enables column-name access
+        self._conn.row_factory = sqlite3.Row
 
     def _execute(self, query: str) -> dict:
         """
@@ -71,7 +71,6 @@ class SqlEnvironment(Environment):
             self._conn.commit()
 
             if cursor.description:
-                # SELECT (or any query that returns rows)
                 columns = [desc[0] for desc in cursor.description]
                 rows = [list(row) for row in cursor.fetchall()]
                 return {
@@ -81,7 +80,6 @@ class SqlEnvironment(Environment):
                     "error": None,
                 }
             else:
-                # INSERT / UPDATE / DELETE / CREATE / DROP …
                 return {
                     "columns": [],
                     "rows": [],
@@ -96,24 +94,82 @@ class SqlEnvironment(Environment):
                 "error": str(e),
             }
 
-    @staticmethod
-    def _reward(result: dict) -> float:
-        """Simple reward signal: +1 for success, -1 for error."""
-        return -1.0 if result["error"] else 1.0
+    def _reward(self, result: dict, query: str) -> float:
+        """
+        Reward based on query quality:
+        - Error:                        0.0
+        - Runs successfully:            +0.3
+        - Returns rows:                 +0.2
+        - Uses JOIN:                    +0.2
+        - Uses aggregation:             +0.2
+        - Uses WHERE:                   +0.1
+        - Columns match task expected:  +0.2 bonus
+        Max possible:                   1.0
+        """
+        if result["error"]:
+            return 0.0
+
+        score = 0.0
+        q = query.lower()
+
+        # Base score for running successfully
+        score += 0.3
+
+        # Returned actual data
+        if result["rowcount"] > 0:
+            score += 0.2
+
+        # Bonus for JOIN
+        if "join" in q:
+            score += 0.2
+
+        # Bonus for aggregation
+        if any(fn in q for fn in ["count(", "sum(", "avg(", "max(", "min("]):
+            score += 0.2
+
+        # Bonus for WHERE filter
+        if "where" in q:
+            score += 0.1
+
+        # Bonus for matching expected columns from task
+        if self._task and result["columns"]:
+            matched = sum(
+                1 for c in self._task.expected_columns
+                if any(
+                    c in col.lower() or col.lower() in c  # ← bidirectional match
+                    for col in result["columns"]
+                )
+            )
+            score += 0.2 * (matched / len(self._task.expected_columns))
+
+        return min(score, 1.0)
+
+    def _pick_task(self) -> Task:
+        """Pick a task based on TASK_DIFFICULTY env var, or random if unset."""
+        if TASK_DIFFICULTY in ("easy", "medium", "hard"):
+            return get_task_by_difficulty(TASK_DIFFICULTY)
+        return get_random_task()
 
     # ------------------------------------------------------------------
     # Environment interface
     # ------------------------------------------------------------------
 
     def reset(self) -> SqlObservation:
+        self._task = self._pick_task()
         self._state = State(episode_id=str(uuid4()), step_count=0)
         self._reset_count += 1
-        self._connect()  # fresh connection each episode
+        self._connect()
+
+        print(f"[ENV] Task: {self._task.id} | Difficulty: {self._task.difficulty}", flush=True)
 
         return SqlObservation(
-            echoed_message="Sql Env environment ready!",
+            echoed_message=f"Task: {self._task.description}",
             message_length=0,
-            metadata={"db_path": DB_PATH},
+            metadata={
+                "db_path": DB_PATH,
+                "task_id": self._task.id,
+                "task_difficulty": self._task.difficulty,
+            },
         )
 
     def step(self, action: SqlAction) -> SqlObservation:
@@ -122,7 +178,6 @@ class SqlEnvironment(Environment):
         query = action.query.strip()
         result = self._execute(query)
 
-        # Build a human-readable summary for echoed_message
         if result["error"]:
             summary = f"ERROR: {result['error']}"
         elif result["columns"]:
@@ -142,7 +197,7 @@ class SqlEnvironment(Environment):
                 "rows": result["rows"],
                 "rowcount": result["rowcount"],
                 "error": result["error"],
-                "reward": self._reward(result),
+                "reward": self._reward(result, query),
             },
         )
 

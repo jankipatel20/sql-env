@@ -1,6 +1,6 @@
 ﻿---
 title: SQL Environment Server
-emoji:  🤖
+emoji: 🤖
 colorFrom: blue
 colorTo: indigo
 sdk: docker
@@ -16,9 +16,12 @@ name: sql-env
 version: 0.1.0 
 ---
 
-# Sql Env Environment
+# SQL Task Environment
 
-A real-world SQL task environment where an AI agent writes, debugs, and optimizes SQL queries against a live in-memory database, with automated graders and reward logic using the OpenEnv framework.
+A real-world SQL task environment where an AI agent writes and optimizes 
+SQL queries against a live SQLite database. The agent is given a natural 
+language task and must produce the correct SQL query to solve it, with 
+rewards based on query correctness, structure, and output quality.
 
 ## Quick Start
 
@@ -125,21 +128,28 @@ The deployed space includes:
 
 ### Action
 **SqlAction**: Contains a single field
-- `message` (str) - The message to echo back
+- `query` (str) - The SQL query to execute against the database
 
 ### Observation
-**SqlObservation**: Contains the echo response and metadata
-- `echoed_message` (str) - The message echoed back
-- `message_length` (int) - Length of the message
-- `reward` (float) - Reward based on message length (length Ã— 0.1)
-- `done` (bool) - Always False for echo environment
-- `metadata` (dict) - Additional info like step count
+**SqlObservation**: Contains the query result and metadata
+- `echoed_message` (str) - Human-readable summary of query result or error
+- `message_length` (int) - Length of the query
+- `metadata` (dict) - Contains query, columns, rows, rowcount, error, reward
 
 ### Reward
-The reward is calculated as: `message_length Ã— 0.1`
-- "Hi" â†’ reward: 0.2
-- "Hello, World!" â†’ reward: 1.3
-- Empty message â†’ reward: 0.0
+Reward is calculated based on query quality (max 1.0):
+- Query runs without error: +0.3
+- Query returns rows: +0.2
+- Query uses JOIN: +0.2
+- Query uses aggregation (COUNT, SUM, AVG, MAX, MIN): +0.2
+- Query uses WHERE: +0.1
+- Returned columns match task expected columns: up to +0.2 bonus
+
+### Tasks
+The environment includes 15 built-in tasks across three difficulty levels:
+- **Easy** (tasks 01–05): Basic SELECT, WHERE, ORDER BY, COUNT
+- **Medium** (tasks 06–10): JOINs, GROUP BY, subqueries
+- **Hard** (tasks 11–15): HAVING, nested subqueries, multi-aggregation
 
 ## Advanced Usage
 
@@ -243,19 +253,24 @@ uvicorn server.app:app --reload
 ## Project Structure
 
 ```
+## Project Structure
+
 sql_env/
-â”œâ”€â”€ .dockerignore         # Docker build exclusions
-â”œâ”€â”€ __init__.py            # Module exports
-â”œâ”€â”€ README.md              # This file
-â”œâ”€â”€ openenv.yaml           # OpenEnv manifest
-â”œâ”€â”€ pyproject.toml         # Project metadata and dependencies
-â”œâ”€â”€ uv.lock                # Locked dependencies (generated)
-â”œâ”€â”€ client.py              # SqlEnv client
-â”œâ”€â”€ models.py              # Action and Observation models
-â””â”€â”€ server/
-    â”œâ”€â”€ __init__.py        # Server module exports
-    â”œâ”€â”€ sql_env_environment.py  # Core environment logic
-    â”œâ”€â”€ app.py             # FastAPI application (HTTP + WebSocket endpoints)
-â””â”€â”€ Dockerfile         # Container image definition
+├── .dockerignore
+├── __init__.py
+├── README.md
+├── openenv.yaml
+├── pyproject.toml
+├── uv.lock
+├── client.py
+├── models.py          # SqlAction, SqlObservation
+├── tasks.py           # 15 built-in SQL tasks with difficulty levels
+├── inference.py       # LLM agent loop (HuggingFace + OpenAI-compatible)
+├── sql_env.db         # SQLite database (employees + departments)
+└── server/
+    ├── __init__.py
+    ├── sql_env_environment.py  # Core environment + reward logic
+    ├── app.py
+└── Dockerfile
 ```
 

@@ -2,14 +2,17 @@ import os
 import asyncio
 from typing import List
 from openai import OpenAI
-from sql_env_environment import SqlEnvironment
+from server.sql_env_environment import SqlEnvironment
 from models import SqlAction
+from dotenv import load_dotenv
+load_dotenv()
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://openrouter.ai/api/v1")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/llama-3.1-8b-instruct:free")
 HF_TOKEN     = os.getenv("HF_TOKEN")
 MAX_STEPS    = 10
 SUCCESS_SCORE_THRESHOLD = 0.6
+
 
 if not HF_TOKEN:
     raise ValueError("HF_TOKEN is required")
@@ -25,22 +28,32 @@ def log_end(success, steps, score, rewards):
     r_str = ",".join(f"{r:.2f}" for r in rewards)
     print(f"[END] success={str(success).lower()} steps={steps} score={score:.2f} rewards={r_str}", flush=True)
 
-def get_model_query(client, last_output: str, history: List[str]) -> SqlAction:
+def get_model_query(client, task_description: str, last_output: str, history: List[str]) -> SqlAction:
     history_str = "\n".join(history[-4:]) if history else "None"
     prompt = f"""You are an expert SQL developer working with a SQLite database.
 
 The database has these tables:
-- employees (id, name, department, salary)
+- employees (id, name, department, salary)  -- department is a foreign key (integer ID)
 - departments (id, name, budget)
 
-LAST OUTPUT:
+IMPORTANT RULES:
+- employees.department is an INTEGER foreign key referencing departments.id
+- Always use table aliases to avoid ambiguous column names (e.g. e.name, d.name)
+- To get department name, JOIN departments and use d.name AS department_name
+
+YOUR TASK:
+{task_description}
+
+LAST QUERY RESULT:
 {last_output}
 
-RECENT HISTORY:
+RECENT HISTORY (learn from these, don't repeat low-scoring queries):
 {history_str}
 
 Instructions:
-- Write a single valid SQLite SQL query
+- Write a single valid SQLite SQL query that completes the task above
+- Reward is between 0.0 and 1.0 — aim for 1.0
+- If last result was an ERROR, fix the query — do NOT fall back to SELECT *
 - Reply with ONLY one line:
 QUERY: <your sql here>
 """
@@ -73,20 +86,21 @@ async def main():
 
     try:
         obs = env.reset()
-        last_output = obs.echoed_message
+        task_description = obs.echoed_message  # ← save task
+        last_output = obs.echoed_message        # ← no metadata yet on reset
 
         for step in range(1, MAX_STEPS + 1):
-            action = get_model_query(client, last_output, history)
+            action = get_model_query(client, task_description, last_output, history)  # ← pass task_description too
             obs = env.step(action)
 
             metadata = obs.metadata or {}
             reward = metadata.get("reward", 0.0)
             error = metadata.get("error", None)
-            done = False  # extend with your own done condition
+            done = reward >= 0.7
 
             rewards.append(reward)
             steps_taken = step
-            last_output = obs.echoed_message
+            last_output = f"ERROR: {error}" if error else obs.echoed_message
             history.append(f"Step {step}: {action.query[:80]} → reward {reward:.2f}")
 
             log_step(step=step, action=action.query[:100],
