@@ -67,7 +67,7 @@ COPY --from=builder /app/env /app/env
 
 # Set PATH to use the virtual environment
 ENV PATH="/app/.venv/bin:$PATH"
-
+ENV ENABLE_WEB_INTERFACE=true
 # Set PYTHONPATH so imports work correctly
 ENV PYTHONPATH="/app/env:$PYTHONPATH"
 

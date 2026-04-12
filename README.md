@@ -1,19 +1,24 @@
 ---
-title: Sql Env Environment Server
-emoji: 🎬
-colorFrom: pink
-colorTo: green
+title: SQL Environment Server
+emoji: 🗄️
+colorFrom: blue
+colorTo: cyan
 sdk: docker
 pinned: false
 app_port: 8000
 base_path: /web
 tags:
   - openenv
+  - sql
+  - database
+  - real-world
+name: sql-env         
+version: 0.1.0 
 ---
 
 # Sql Env Environment
 
-A simple test environment that echoes back messages. Perfect for testing the env APIs as well as demonstrating environment usage patterns.
+A real-world SQL task environment where an AI agent writes, debugs, and optimizes SQL queries against a live in-memory database, with automated graders and reward logic using the OpenEnv framework.
 
 ## Quick Start
 
@@ -57,7 +62,7 @@ Before using the environment, you need to build the Docker image:
 
 ```bash
 # From project root
-docker build -t sql_env-env:latest -f server/Dockerfile .
+docker docker build -t sql-env .
 ```
 
 ## Deploying to Hugging Face Spaces
@@ -251,5 +256,5 @@ sql_env/
     ├── __init__.py        # Server module exports
     ├── sql_env_environment.py  # Core environment logic
     ├── app.py             # FastAPI application (HTTP + WebSocket endpoints)
-    └── Dockerfile         # Container image definition
+└── Dockerfile         # Container image definition
 ```
