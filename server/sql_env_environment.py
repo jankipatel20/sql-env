@@ -29,7 +29,6 @@ DB_PATH = os.environ.get(
     os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sql_env.db")
 )
 
-# Set TASK_DIFFICULTY=easy/medium/hard in .env, or leave unset for random
 TASK_DIFFICULTY = os.environ.get("TASK_DIFFICULTY", None)
 
 
@@ -58,13 +57,6 @@ class SqlEnvironment(Environment):
         self._conn.row_factory = sqlite3.Row
 
     def _execute(self, query: str) -> dict:
-        """
-        Execute a SQL query and return a result dict with keys:
-          - columns : list[str]
-          - rows    : list[list]
-          - rowcount: int  (affected rows for INSERT/UPDATE/DELETE)
-          - error   : str | None
-        """
         try:
             cursor = self._conn.cursor()
             cursor.execute(query)
@@ -123,7 +115,6 @@ class SqlEnvironment(Environment):
             )
             score += 0.2 * (matched / len(self._task.expected_columns))
 
-        # ← run grader if available
         if self._task and self._task.grader and result["rows"]:
             grader_score = self._task.grader(result["rows"])
             score = min(score + (grader_score * 0.2), 1.0)
@@ -149,6 +140,7 @@ class SqlEnvironment(Environment):
                 "db_path": DB_PATH,
                 "task_id": self._task.id,
                 "task_difficulty": self._task.difficulty,
+                "task_description": self._task.description,
             },
         )
 
@@ -168,6 +160,10 @@ class SqlEnvironment(Environment):
         else:
             summary = f"Query OK. {result['rowcount']} row(s) affected."
 
+        grader_score = None
+        if self._task and self._task.grader and not result["error"]:
+            grader_score = self._task.grader(result["rows"])
+
         return SqlObservation(
             echoed_message=summary,
             message_length=len(query),
@@ -178,6 +174,9 @@ class SqlEnvironment(Environment):
                 "rowcount": result["rowcount"],
                 "error": result["error"],
                 "reward": self._reward(result, query),
+                "grader_score": grader_score,
+                "task_id": self._task.id if self._task else None,
+                "task_description": self._task.description if self._task else None,
             },
         )
 
