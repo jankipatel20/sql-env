@@ -1,8 +1,8 @@
----
+﻿---
 title: SQL Environment Server
-emoji: 🗄️
+emoji:  🤖
 colorFrom: blue
-colorTo: cyan
+colorTo: indigo
 sdk: docker
 pinned: false
 app_port: 8000
@@ -41,9 +41,9 @@ try:
     for msg in messages:
         result = sql_envenv.step(SqlAction(message=msg))
         print(f"Sent: '{msg}'")
-        print(f"  → Echoed: '{result.observation.echoed_message}'")
-        print(f"  → Length: {result.observation.message_length}")
-        print(f"  → Reward: {result.reward}")
+        print(f"  â†’ Echoed: '{result.observation.echoed_message}'")
+        print(f"  â†’ Length: {result.observation.message_length}")
+        print(f"  â†’ Reward: {result.reward}")
 
 finally:
     # Always clean up
@@ -131,15 +131,15 @@ The deployed space includes:
 **SqlObservation**: Contains the echo response and metadata
 - `echoed_message` (str) - The message echoed back
 - `message_length` (int) - Length of the message
-- `reward` (float) - Reward based on message length (length × 0.1)
+- `reward` (float) - Reward based on message length (length Ã— 0.1)
 - `done` (bool) - Always False for echo environment
 - `metadata` (dict) - Additional info like step count
 
 ### Reward
-The reward is calculated as: `message_length × 0.1`
-- "Hi" → reward: 0.2
-- "Hello, World!" → reward: 1.3
-- Empty message → reward: 0.0
+The reward is calculated as: `message_length Ã— 0.1`
+- "Hi" â†’ reward: 0.2
+- "Hello, World!" â†’ reward: 1.3
+- Empty message â†’ reward: 0.0
 
 ## Advanced Usage
 
@@ -244,17 +244,18 @@ uvicorn server.app:app --reload
 
 ```
 sql_env/
-├── .dockerignore         # Docker build exclusions
-├── __init__.py            # Module exports
-├── README.md              # This file
-├── openenv.yaml           # OpenEnv manifest
-├── pyproject.toml         # Project metadata and dependencies
-├── uv.lock                # Locked dependencies (generated)
-├── client.py              # SqlEnv client
-├── models.py              # Action and Observation models
-└── server/
-    ├── __init__.py        # Server module exports
-    ├── sql_env_environment.py  # Core environment logic
-    ├── app.py             # FastAPI application (HTTP + WebSocket endpoints)
-└── Dockerfile         # Container image definition
+â”œâ”€â”€ .dockerignore         # Docker build exclusions
+â”œâ”€â”€ __init__.py            # Module exports
+â”œâ”€â”€ README.md              # This file
+â”œâ”€â”€ openenv.yaml           # OpenEnv manifest
+â”œâ”€â”€ pyproject.toml         # Project metadata and dependencies
+â”œâ”€â”€ uv.lock                # Locked dependencies (generated)
+â”œâ”€â”€ client.py              # SqlEnv client
+â”œâ”€â”€ models.py              # Action and Observation models
+â””â”€â”€ server/
+    â”œâ”€â”€ __init__.py        # Server module exports
+    â”œâ”€â”€ sql_env_environment.py  # Core environment logic
+    â”œâ”€â”€ app.py             # FastAPI application (HTTP + WebSocket endpoints)
+â””â”€â”€ Dockerfile         # Container image definition
 ```
+
